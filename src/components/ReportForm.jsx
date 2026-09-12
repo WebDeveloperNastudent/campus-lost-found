@@ -11,6 +11,7 @@ const CATEGORIES = [
 export default function ReportForm({ onCreated }) {
   const { user } = useAuth()
   const [category, setCategory] = useState('lost_item')
+  const [priority, setPriority] = useState('normal')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState('')
@@ -56,6 +57,7 @@ export default function ReportForm({ onCreated }) {
       const { error: insertError } = await supabase.from('reports').insert({
         reporter_id: user.id,
         category,
+        priority,
         title: title.trim(),
         description: description.trim(),
         location: location.trim() || null,
@@ -68,6 +70,7 @@ export default function ReportForm({ onCreated }) {
       setTitle('')
       setDescription('')
       setLocation('')
+      setPriority('normal')
       setImageFile(null)
       e.target.reset()
       onCreated?.()
@@ -93,6 +96,15 @@ export default function ReportForm({ onCreated }) {
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="field">
+        <label htmlFor="priority">Priority</label>
+        <select id="priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+          <option value="normal">Normal</option>
+          <option value="urgent">Urgent</option>
+        </select>
+        <span className="field-hint">Mark as urgent for safety hazards or time-sensitive issues.</span>
       </div>
 
       <div className="field">

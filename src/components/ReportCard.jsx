@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import StatusBadge from './StatusBadge'
+import ReportComments from './ReportComments'
 
 const CATEGORY_LABELS = {
   lost_item: 'Lost item',
@@ -7,9 +8,11 @@ const CATEGORY_LABELS = {
   facility_issue: 'Facility issue',
 }
 
-export default function ReportCard({ report, isAdmin, onUpdateStatus }) {
+export default function ReportCard({ report, isAdmin, onUpdateStatus, onDelete }) {
   const [savingStatus, setSavingStatus] = useState(false)
   const [notes, setNotes] = useState(report.admin_notes || '')
+  const [showComments, setShowComments] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function handleStatusChange(newStatus) {
     setSavingStatus(true)
@@ -23,6 +26,15 @@ export default function ReportCard({ report, isAdmin, onUpdateStatus }) {
     setSavingStatus(false)
   }
 
+  async function handleDelete() {
+    if (!window.confirm('Delete this report? This cannot be undone.')) return
+    setDeleting(true)
+    await onDelete(report.id)
+    setDeleting(false)
+  }
+
+  const canDelete = !isAdmin && onDelete && report.status === 'pending'
+
   return (
     <div className="ticket" data-status={report.status}>
       <div className="ticket-top">
@@ -30,7 +42,10 @@ export default function ReportCard({ report, isAdmin, onUpdateStatus }) {
           <span className="category-tag">{CATEGORY_LABELS[report.category]}</span>
           <h3 style={{ margin: '4px 0 0' }}>{report.title}</h3>
         </div>
-        <StatusBadge status={report.status} />
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {report.priority === 'urgent' && <span className="priority-chip">Urgent</span>}
+          <StatusBadge status={report.status} />
+        </div>
       </div>
 
       <p className="ticket-desc">{report.description}</p>
@@ -89,6 +104,19 @@ export default function ReportCard({ report, isAdmin, onUpdateStatus }) {
           </div>
         </div>
       )}
+
+      <div className="ticket-actions">
+        <button className="btn btn-outline btn-sm" onClick={() => setShowComments((v) => !v)}>
+          {showComments ? 'Hide messages' : 'Messages'}
+        </button>
+        {canDelete && (
+          <button className="btn btn-outline btn-sm" disabled={deleting} onClick={handleDelete}>
+            {deleting ? 'Deleting...' : 'Delete report'}
+          </button>
+        )}
+      </div>
+
+      {showComments && <ReportComments reportId={report.id} />}
     </div>
   )
 }
