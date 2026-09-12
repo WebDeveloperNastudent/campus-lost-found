@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import ReportForm from '../components/ReportForm'
 import ReportCard from '../components/ReportCard'
 
 export default function StudentDashboard() {
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -24,6 +25,10 @@ export default function StudentDashboard() {
   useEffect(() => {
     loadReports()
   }, [loadReports])
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />
+  }
 
   const filtered = reports.filter((r) => filter === 'all' || r.status === filter)
 
