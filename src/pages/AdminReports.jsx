@@ -101,10 +101,15 @@ export default function AdminReports() {
     return () => supabase.removeChannel(channel)
   }, [loadReports])
 
-  async function handleUpdateStatus(reportId, { status, admin_notes }) {
-    await supabase.from('reports').update({ status, admin_notes }).eq('id', reportId)
-    await loadReports()
+ async function handleUpdateStatus(reportId, { status, admin_notes }) {
+  const payload = {
+    status,
+    admin_notes,
+    resolved_at: status === 'resolved' ? new Date().toISOString() : null,
   }
+  await supabase.from('reports').update(payload).eq('id', reportId)
+  await loadReports()
+}
 
   async function handleDelete(reportId) {
     await supabase.from('reports').delete().eq('id', reportId)

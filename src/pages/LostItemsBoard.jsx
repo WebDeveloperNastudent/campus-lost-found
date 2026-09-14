@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext'
 import ReportCard from '../components/ReportCard'
 import { SkeletonTicket } from '../components/Skeleton'
 
+const RESOLVED_VISIBLE_MS = 5 * 60 * 1000 // 5 minutes
+
 function useReveal() {
   const ref = useRef(null)
   const [visible, setVisible] = useState(false)
@@ -45,6 +47,7 @@ export default function LostItemsBoard() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [now, setNow] = useState(Date.now())
 
   const loadItems = useCallback(async () => {
     setLoading(true)
@@ -74,7 +77,21 @@ export default function LostItemsBoard() {
     return () => supabase.removeChannel(channel)
   }, [loadItems])
 
-  const filtered = items.filter((r) => {
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 15000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const isStillVisible = useCallback(
+    (r) => {
+      if (r.status !== 'resolved') return true
+      if (!r.resolved_at) return true
+      return now - new Date(r.resolved_at).getTime() < RESOLVED_VISIBLE_MS
+    },
+    [now]
+  )
+
+  const filtered = items.filter(isStillVisible).filter((r) => {
     const q = search.trim().toLowerCase()
     if (!q) return true
     return (
