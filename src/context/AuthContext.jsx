@@ -85,7 +85,10 @@ export function AuthProvider({ children }) {
         // enforced by Google itself for Workspace-managed domains — our own
         // rejectIfNotSchoolEmail() check above is what actually blocks
         // non-school emails regardless of that.
-        queryParams: { hd: 'neu.edu.ph' },
+        // select_account forces Google to always show the account picker,
+        // instead of silently reusing whichever Google account is already
+        // signed into the browser.
+        queryParams: { hd: 'neu.edu.ph', prompt: 'select_account' },
       },
     })
   }
