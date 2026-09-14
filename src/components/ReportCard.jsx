@@ -61,6 +61,7 @@ export default function ReportCard({
   }
 
   const canDelete = !isAdmin && onDelete && report.status === 'pending' && !report.is_public && !isPublicBoard
+  const isBoardEligible = report.category === 'found_item' || report.category === 'lost_item'
 
   return (
     <div className="ticket" data-status={report.status}>
@@ -163,9 +164,14 @@ export default function ReportCard({
             <button className="btn btn-sm" disabled={savingStatus} onClick={handleSaveNotes}>
               Save note
             </button>
-            {report.category === 'found_item' && onTogglePublic && (
+            {isBoardEligible && onTogglePublic && (
               <button className="btn btn-outline btn-sm" disabled={togglingPublic} onClick={handleTogglePublic}>
-                <Megaphone size={14} /> {report.is_public ? 'Remove from board' : 'Post to student board'}
+                <Megaphone size={14} />
+                {report.is_public
+                  ? 'Remove from board'
+                  : report.category === 'lost_item'
+                  ? 'Post to Lost items board'
+                  : 'Post to Found items board'}
               </button>
             )}
           </div>

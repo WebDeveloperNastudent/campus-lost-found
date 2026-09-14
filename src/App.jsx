@@ -38,9 +38,6 @@ function Layout({ children }) {
 function AppRoutes() {
   const location = useLocation()
   return (
-    // Keying on pathname remounts this wrapper on every navigation, so the
-    // "rise up + fade in" entrance replays for every page: landing, login/
-    // signup, the dashboards after signing in, and back to landing on logout.
     <div key={location.pathname} className="page-transition">
       <Routes location={location}>
         <Route path="/login" element={<Login />} />
