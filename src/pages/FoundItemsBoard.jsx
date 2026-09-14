@@ -47,16 +47,17 @@ export default function FoundItemsBoard() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
-  const loadItems = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('is_public', true)
-      .order('created_at', { ascending: false })
-    setItems(data || [])
-    setLoading(false)
-  }, [])
+const loadItems = useCallback(async () => {
+  setLoading(true)
+  const { data } = await supabase
+    .from('reports')
+    .select('*')
+    .eq('is_public', true)
+    .eq('category', 'found_item')
+    .order('created_at', { ascending: false })
+  setItems(data || [])
+  setLoading(false)
+}, [])
 
   useEffect(() => {
     loadItems()
