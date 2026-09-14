@@ -52,6 +52,12 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut()
   }
 
+  // Lets other components (e.g. the profile-edit dropdown) tell the context
+  // to re-fetch the profile row after they've updated it directly.
+  async function refreshProfile() {
+    if (session?.user) await loadProfile(session.user.id)
+  }
+
   const value = {
     session,
     user: session?.user ?? null,
@@ -61,6 +67,7 @@ export function AuthProvider({ children }) {
     signUp,
     signIn,
     signOut,
+    refreshProfile,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

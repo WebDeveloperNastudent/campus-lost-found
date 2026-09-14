@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import { useToast } from '../context/ToastContext'
 
 const CATEGORIES = [
   { value: 'lost_item', label: 'Lost item' },
@@ -8,30 +9,104 @@ const CATEGORIES = [
   { value: 'facility_issue', label: 'Facility issue' },
 ]
 
+const LOCATIONS = [
+  'Library',
+  'Main Building',
+  'Cafeteria / Canteen',
+  'Gymnasium',
+  'Student Center',
+  'Science Building',
+  'Engineering Building',
+  'Parking Area',
+  'Dormitory',
+  'Sports Field / Grounds',
+  'Other',
+]
+
+function normalizeWords(str) {
+  return new Set(
+    str
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+  )
+}
+
+// Rough "is this probably the same item" check: how much of the shorter
+// title's words show up in the other title, used only to warn, never block.
+function titlesLookSimilar(a, b) {
+  const wordsA = normalizeWords(a)
+  const wordsB = normalizeWords(b)
+  if (wordsA.size === 0 || wordsB.size === 0) return false
+  let overlap = 0
+  wordsA.forEach((w) => {
+    if (wordsB.has(w)) overlap += 1
+  })
+  return overlap / Math.min(wordsA.size, wordsB.size) >= 0.5
+}
+
 export default function ReportForm({ onCreated }) {
   const { user } = useAuth()
+  const { addToast } = useToast()
   const [category, setCategory] = useState('lost_item')
   const [priority, setPriority] = useState('normal')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [location, setLocation] = useState('')
+  const [locationChoice, setLocationChoice] = useState('')
+  const [customLocation, setCustomLocation] = useState('')
   const [imageFile, setImageFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [fieldError, setFieldError] = useState('')
+
+  const finalLocation = (locationChoice === 'Other' ? customLocation : locationChoice).trim()
+
+  async function checkForDuplicates() {
+    const { data: existing } = await supabase
+      .from('reports')
+      .select('id, title, location, status')
+      .eq('category', category)
+      .neq('status', 'resolved')
+
+    const dupes = (existing || []).filter((r) => {
+      if (!titlesLookSimilar(r.title, title)) return false
+      if (finalLocation && r.location) {
+        return r.location.toLowerCase() === finalLocation.toLowerCase()
+      }
+      return true
+    })
+
+    if (dupes.length === 0) return true
+
+    const sample = dupes[0]
+    return window.confirm(
+      `Heads up: there's already a similar report ("${sample.title}"${
+        sample.location ? ` at ${sample.location}` : ''
+      }) that isn't resolved yet. It might be the same item. Submit this one anyway?`
+    )
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setError('')
-    setSuccess('')
+    setFieldError('')
 
     if (!title.trim() || !description.trim()) {
-      setError('Please fill in the title and description.')
+      setFieldError('Please fill in the title and description.')
+      return
+    }
+    if (locationChoice === 'Other' && !customLocation.trim()) {
+      setFieldError('Please specify the location.')
       return
     }
 
     setSubmitting(true)
     try {
+      const okToContinue = await checkForDuplicates()
+      if (!okToContinue) {
+        setSubmitting(false)
+        return
+      }
+
       let imageUrl = null
 
       if (imageFile) {
@@ -60,22 +135,23 @@ export default function ReportForm({ onCreated }) {
         priority,
         title: title.trim(),
         description: description.trim(),
-        location: location.trim() || null,
+        location: finalLocation || null,
         image_url: imageUrl,
       })
 
       if (insertError) throw insertError
 
-      setSuccess('Report submitted. You can track its status below.')
+      addToast('Report submitted successfully', 'success')
       setTitle('')
       setDescription('')
-      setLocation('')
+      setLocationChoice('')
+      setCustomLocation('')
       setPriority('normal')
       setImageFile(null)
       e.target.reset()
       onCreated?.()
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.')
+      addToast(err.message || 'Something went wrong. Please try again.', 'error')
     } finally {
       setSubmitting(false)
     }
@@ -84,8 +160,7 @@ export default function ReportForm({ onCreated }) {
   return (
     <form className="form-card wide" onSubmit={handleSubmit}>
       <h3>Report something</h3>
-      {error && <div className="form-error">{error}</div>}
-      {success && <div className="form-success">{success}</div>}
+      {fieldError && <div className="form-error">{fieldError}</div>}
 
       <div className="field">
         <label htmlFor="category">Category</label>
@@ -130,14 +205,30 @@ export default function ReportForm({ onCreated }) {
 
       <div className="field">
         <label htmlFor="location">Location</label>
-        <input
+        <select
           id="location"
-          type="text"
-          placeholder="e.g. Library, 2nd floor"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-        />
+          value={locationChoice}
+          onChange={(e) => setLocationChoice(e.target.value)}
+        >
+          <option value="">Select a location...</option>
+          {LOCATIONS.map((loc) => (
+            <option key={loc} value={loc}>{loc}</option>
+          ))}
+        </select>
       </div>
+
+      {locationChoice === 'Other' && (
+        <div className="field">
+          <label htmlFor="customLocation">Specify location</label>
+          <input
+            id="customLocation"
+            type="text"
+            placeholder="e.g. Behind the covered court"
+            value={customLocation}
+            onChange={(e) => setCustomLocation(e.target.value)}
+          />
+        </div>
+      )}
 
       <div className="field">
         <label htmlFor="image">Photo (optional)</label>

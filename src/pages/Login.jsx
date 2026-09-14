@@ -2,6 +2,23 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+function ContourBackdrop() {
+  const base =
+    'M120,10 C170,8 210,35 225,75 C240,115 230,160 195,185 ' +
+    'C160,210 110,215 75,190 C40,165 20,120 30,80 C40,40 75,12 120,10 Z'
+  const rings = [1, 0.86, 0.72, 0.58, 0.46, 0.35, 0.25]
+
+  return (
+    <svg viewBox="0 0 260 230" className="auth-contour" aria-hidden="true">
+      {rings.map((scale, i) => (
+        <g key={i} transform={`translate(130,115) scale(${scale}) translate(-130,-115)`}>
+          <path d={base} fill="none" stroke="var(--accent)" strokeWidth={1.6} />
+        </g>
+      ))}
+    </svg>
+  )
+}
+
 export default function Login() {
   const { signIn } = useAuth()
   const navigate = useNavigate()
@@ -25,8 +42,12 @@ export default function Login() {
 
   return (
     <div className="auth-shell">
+      <ContourBackdrop />
       <div className="form-card">
         <div className="auth-header">
+          <Link to="/" className="auth-crest-row">
+            <span className="brand-crest">CW</span>
+          </Link>
           <h1>
             Campus<span className="brand-mark">Watch</span>
           </h1>

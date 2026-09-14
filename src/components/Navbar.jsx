@@ -14,6 +14,7 @@ export default function Navbar() {
     <header className="navbar">
       <div className="navbar-inner">
         <Link to="/" className="brand">
+          <span className="brand-crest">CW</span>
           Campus<span className="brand-mark">Watch</span>
         </Link>
         <nav className="nav-links">
