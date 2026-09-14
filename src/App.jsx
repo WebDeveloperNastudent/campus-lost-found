@@ -12,6 +12,7 @@ import StudentDashboard from './pages/StudentDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminReports from './pages/AdminReports'
 import FoundItemsBoard from './pages/FoundItemsBoard'
+import LostItemsBoard from './pages/LostItemsBoard'
 import NotFound from './pages/NotFound'
 
 function Home() {
@@ -81,6 +82,16 @@ function AppRoutes() {
             <Layout>
               <ProtectedRoute>
                 <FoundItemsBoard />
+              </ProtectedRoute>
+            </Layout>
+          }
+        />
+        <Route
+          path="/lost-board"
+          element={
+            <Layout>
+              <ProtectedRoute>
+                <LostItemsBoard />
               </ProtectedRoute>
             </Layout>
           }

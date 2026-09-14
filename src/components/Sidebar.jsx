@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ClipboardList, FileText, PackageSearch, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, ClipboardList, FileText, PackageSearch, Search, LogOut, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
 export default function Sidebar({ open, onClose }) {
@@ -49,6 +49,11 @@ export default function Sidebar({ open, onClose }) {
           <Link to="/board" className={`sidebar-link${isActive('/board')}`}>
             <PackageSearch size={17} />
             Found items board
+          </Link>
+
+          <Link to="/lost-board" className={`sidebar-link${isActive('/lost-board')}`}>
+            <Search size={17} />
+            Lost items board
           </Link>
         </nav>
 
