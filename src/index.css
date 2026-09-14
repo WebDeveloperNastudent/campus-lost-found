@@ -1531,3 +1531,22 @@ main.page {
 .notfound-shell p {
   margin: 0 0 12px;
 }
+
+/* --- Auth divider (used between "Continue with Google" and email/password form) --- */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
