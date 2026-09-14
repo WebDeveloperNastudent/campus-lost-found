@@ -1,165 +1,83 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { Navigate } from 'react-router-dom'
-import { supabase } from '../supabaseClient'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import ReportForm from '../components/ReportForm'
-import ReportCard from '../components/ReportCard'
-import { SkeletonTicket } from '../components/Skeleton'
 
-// Reveals an element with a fade + rise the first time it scrolls into view.
-function useReveal() {
-  const ref = useRef(null)
-  const [visible, setVisible] = useState(false)
+export default function VerifyDevice() {
+  const { user, verifyingEmail, confirmDeviceCode, resendDeviceCode, signOut } = useAuth()
+  const navigate = useNavigate()
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [resent, setResent] = useState(false)
 
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true)
-          obs.disconnect()
-        }
-      },
-      { threshold: 0.15 }
-    )
-    obs.observe(el)
-    return () => obs.disconnect()
-  }, [])
-
-  return [ref, visible]
-}
-
-function RevealItem({ children, delay = 0 }) {
-  const [ref, visible] = useReveal()
-  return (
-    <div
-      ref={ref}
-      className={`reveal${visible ? ' revealed' : ''}`}
-      style={{ transitionDelay: visible ? `${delay}ms` : '0ms' }}
-    >
-      {children}
-    </div>
-  )
-}
-
-export default function StudentDashboard() {
-  const { user, isAdmin } = useAuth()
-  const [reports, setReports] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
-  const [search, setSearch] = useState('')
-  const formRef = useRef(null)
-
-  useEffect(() => {
-    function handleJumpToForm() {
-      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    setSubmitting(true)
+    const { error } = await confirmDeviceCode(code.trim())
+    setSubmitting(false)
+    if (error) {
+      setError('That code didn\'t work. Double-check it and try again.')
+      return
     }
-    window.addEventListener('campuswatch:new-report', handleJumpToForm)
-    return () => window.removeEventListener('campuswatch:new-report', handleJumpToForm)
-  }, [])
-
-  const loadReports = useCallback(async () => {
-    setLoading(true)
-    const { data } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('reporter_id', user.id)
-      .order('created_at', { ascending: false })
-    setReports(data || [])
-    setLoading(false)
-  }, [user.id])
-
-  useEffect(() => {
-    loadReports()
-  }, [loadReports])
-
-  // Live updates: when an admin changes the status/notes on one of this
-  // student's reports, the list refreshes automatically, no manual refresh.
-  useEffect(() => {
-    if (!user) return
-    const channel = supabase
-      .channel(`student-reports-changes-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'reports', filter: `reporter_id=eq.${user.id}` },
-        () => loadReports()
-      )
-      .subscribe()
-    return () => supabase.removeChannel(channel)
-  }, [user, loadReports])
-
-  async function handleDelete(reportId) {
-    await supabase.from('reports').delete().eq('id', reportId)
-    await loadReports()
+    navigate('/')
   }
 
-  if (isAdmin) {
-    return <Navigate to="/admin" replace />
+  async function handleResend() {
+    setError('')
+    setResent(false)
+    const { error } = await resendDeviceCode()
+    if (error) {
+      setError('Could not resend the code. Try again in a moment.')
+      return
+    }
+    setResent(true)
   }
 
-  const filtered = reports.filter((r) => {
-    const matchesStatus = filter === 'all' || r.status === filter
-    const q = search.trim().toLowerCase()
-    const matchesSearch =
-      !q ||
-      r.title.toLowerCase().includes(q) ||
-      r.description.toLowerCase().includes(q) ||
-      (r.location || '').toLowerCase().includes(q)
-    return matchesStatus && matchesSearch
-  })
+  async function handleUseDifferentAccount() {
+    await signOut()
+    navigate('/login')
+  }
 
   return (
-    <div className="container">
-      <div className="page-header">
-        <div>
-          <h1>My reports</h1>
-          <p>Submit a lost item, found item, or facility issue, and track its status here.</p>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 36 }}>
-        <div ref={formRef}>
-          <ReportForm onCreated={loadReports} />
+    <div className="auth-shell">
+      <div className="form-card">
+        <div className="auth-header">
+          <span className="brand-crest" style={{ margin: '0 auto 10px', width: 34, height: 34 }}>CW</span>
+          <h1>Verify this device</h1>
+          <p>
+            We sent a 6-digit code to <strong>{verifyingEmail || user?.email}</strong>.
+            Enter it below to continue on this device.
+          </p>
         </div>
 
-        <div>
-          <div className="field" style={{ maxWidth: 320 }}>
+        {error && <div className="form-error">{error}</div>}
+        {resent && <div className="form-success">A new code was sent.</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label htmlFor="code">Verification code</label>
             <input
+              id="code"
               type="text"
-              placeholder="Search your reports..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
             />
           </div>
+          <button className="btn btn-accent" type="submit" disabled={submitting || !code.trim()} style={{ width: '100%' }}>
+            {submitting ? 'Verifying...' : 'Verify and continue'}
+          </button>
+        </form>
 
-          <div className="filter-bar">
-            {['all', 'pending', 'in_progress', 'resolved'].map((f) => (
-              <button
-                key={f}
-                className={`filter-btn ${filter === f ? 'active' : ''}`}
-                onClick={() => setFilter(f)}
-              >
-                {f === 'all' ? 'All' : f.replace('_', ' ')}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <>
-              <SkeletonTicket />
-              <SkeletonTicket />
-            </>
-          ) : filtered.length === 0 ? (
-            <div className="empty-state">No reports match here.</div>
-          ) : (
-            filtered.map((r, i) => (
-              <RevealItem key={r.id} delay={Math.min(i * 50, 250)}>
-                <ReportCard report={r} isAdmin={false} onDelete={handleDelete} />
-              </RevealItem>
-            ))
-          )}
-        </div>
+        <p className="auth-switch">
+          Didn't get it? <button type="button" className="link-btn" onClick={handleResend}>Resend code</button>
+        </p>
+        <p className="auth-switch">
+          Wrong account? <button type="button" className="link-btn" onClick={handleUseDifferentAccount}>Sign out</button>
+        </p>
       </div>
     </div>
   )

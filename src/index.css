@@ -371,6 +371,16 @@ main.page {
   font-size: 0.88rem;
   color: var(--ink-soft);
 }
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+}
 
 .select-inline {
   display: flex;
@@ -1532,21 +1542,14 @@ main.page {
   margin: 0 0 12px;
 }
 
-/* --- Auth divider (used between "Continue with Google" and email/password form) --- */
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 18px 0;
-  color: var(--ink-soft);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.auth-divider::before,
-.auth-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--line);
+/* --- Link-styled button (used in VerifyDevice "Resend code" / "Sign out") --- */
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-ink);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
 }

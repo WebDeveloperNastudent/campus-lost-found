@@ -1,12 +1,21 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase } from '../supabaseClient'
 
 const AuthContext = createContext(null)
 
 const ALLOWED_EMAIL_DOMAIN = '@neu.edu.ph'
+const DEVICE_TRUST_PREFIX = 'cw_trusted_device_'
 
 function isAllowedEmail(email) {
   return typeof email === 'string' && email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN)
+}
+
+function isDeviceTrusted(userId) {
+  return localStorage.getItem(DEVICE_TRUST_PREFIX + userId) === 'true'
+}
+
+function trustDevice(userId) {
+  localStorage.setItem(DEVICE_TRUST_PREFIX + userId, 'true')
 }
 
 export function AuthProvider({ children }) {
@@ -14,6 +23,9 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState('')
+  const [deviceVerified, setDeviceVerified] = useState(true)
+  const [verifyingEmail, setVerifyingEmail] = useState('')
+  const otpSentForRef = useRef(null)
 
   async function loadProfile(userId) {
     const { data, error } = await supabase
@@ -38,12 +50,38 @@ export function AuthProvider({ children }) {
     return true
   }
 
+  // If this browser hasn't been marked trusted for this user before, sends
+  // a one-time email code and flips deviceVerified to false so
+  // ProtectedRoute can redirect to /verify-device until it's confirmed.
+  function checkDeviceTrust(nextSession) {
+    if (!nextSession?.user) {
+      setDeviceVerified(true)
+      return
+    }
+    if (isDeviceTrusted(nextSession.user.id)) {
+      setDeviceVerified(true)
+      return
+    }
+    setDeviceVerified(false)
+    setVerifyingEmail(nextSession.user.email)
+    if (otpSentForRef.current !== nextSession.user.id) {
+      otpSentForRef.current = nextSession.user.id
+      supabase.auth.signInWithOtp({
+        email: nextSession.user.email,
+        options: { shouldCreateUser: false },
+      })
+    }
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const rejected = await rejectIfNotSchoolEmail(session)
       if (!rejected) {
         setSession(session)
-        if (session?.user) await loadProfile(session.user.id)
+        if (session?.user) {
+          await loadProfile(session.user.id)
+          checkDeviceTrust(session)
+        }
       }
       setLoading(false)
     })
@@ -55,6 +93,7 @@ export function AuthProvider({ children }) {
       setSession(session)
       if (session?.user) {
         loadProfile(session.user.id)
+        checkDeviceTrust(session)
       } else {
         setProfile(null)
       }
@@ -95,10 +134,33 @@ export function AuthProvider({ children }) {
 
   async function signOut() {
     await supabase.auth.signOut()
+    otpSentForRef.current = null
+    setDeviceVerified(true)
   }
 
   function clearAuthError() {
     setAuthError('')
+  }
+
+  async function resendDeviceCode() {
+    if (!verifyingEmail) return { error: new Error('No email to verify') }
+    return supabase.auth.signInWithOtp({
+      email: verifyingEmail,
+      options: { shouldCreateUser: false },
+    })
+  }
+
+  async function confirmDeviceCode(code) {
+    const { error } = await supabase.auth.verifyOtp({
+      email: verifyingEmail,
+      token: code,
+      type: 'email',
+    })
+    if (!error && session?.user) {
+      trustDevice(session.user.id)
+      setDeviceVerified(true)
+    }
+    return { error }
   }
 
   // Lets other components (e.g. the profile-edit dropdown) tell the context
@@ -115,6 +177,10 @@ export function AuthProvider({ children }) {
     loading,
     authError,
     clearAuthError,
+    deviceVerified,
+    verifyingEmail,
+    resendDeviceCode,
+    confirmDeviceCode,
     signUp,
     signIn,
     signInWithGoogle,

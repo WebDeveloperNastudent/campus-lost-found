@@ -8,6 +8,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
+import VerifyDevice from './pages/VerifyDevice'
 import StudentDashboard from './pages/StudentDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminReports from './pages/AdminReports'
@@ -42,6 +43,7 @@ function AppRoutes() {
       <Routes location={location}>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/verify-device" element={<VerifyDevice />} />
         <Route path="/" element={<Home />} />
         <Route
           path="/dashboard"
