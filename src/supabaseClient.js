@@ -9,4 +9,13 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
+// Kunin muna kung galing ba tayo sa pag-click ng magic link BAGO ito
+// i-clear/i-strip ng Supabase client sa URL pagkatapos ng auto-detect nito.
+if (typeof window !== 'undefined') {
+  const hash = window.location.hash
+  if (hash.includes('access_token') && hash.includes('type=magiclink')) {
+    sessionStorage.setItem('cw_magic_link_pending', '1')
+  }
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)

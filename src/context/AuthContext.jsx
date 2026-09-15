@@ -53,24 +53,50 @@ export function AuthProvider({ children }) {
   // If this browser hasn't been marked trusted for this user before, sends
   // a one-time email code and flips deviceVerified to false so
   // ProtectedRoute can redirect to /verify-device until it's confirmed.
-  function checkDeviceTrust(nextSession) {
+function checkDeviceTrust(nextSession) {
     if (!nextSession?.user) {
       setDeviceVerified(true)
       return
     }
+
+    // Kung galing tayo sa pag-click ng magic link (na-flag natin sa
+    // supabaseClient.js), ang pag-click mismo ang siyang "verification" —
+    // i-trust na natin agad ang device na ito, walang extra step.
+    if (sessionStorage.getItem('cw_magic_link_pending') === '1') {
+      sessionStorage.removeItem('cw_magic_link_pending')
+      trustDevice(nextSession.user.id)
+      setDeviceVerified(true)
+      return
+    }
+
     if (isDeviceTrusted(nextSession.user.id)) {
       setDeviceVerified(true)
       return
     }
+
     setDeviceVerified(false)
     setVerifyingEmail(nextSession.user.email)
     if (otpSentForRef.current !== nextSession.user.id) {
       otpSentForRef.current = nextSession.user.id
       supabase.auth.signInWithOtp({
         email: nextSession.user.email,
-        options: { shouldCreateUser: false },
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/verify-device`,
+        },
       })
     }
+  }
+
+  async function resendDeviceCode() {
+    if (!verifyingEmail) return { error: new Error('No email to verify') }
+    return supabase.auth.signInWithOtp({
+      email: verifyingEmail,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/verify-device`,
+      },
+    })
   }
 
   useEffect(() => {
