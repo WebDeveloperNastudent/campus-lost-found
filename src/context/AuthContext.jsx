@@ -10,10 +10,6 @@ function isAllowedEmail(email) {
   return typeof email === 'string' && email.toLowerCase().endsWith(ALLOWED_EMAIL_DOMAIN)
 }
 
-function isDeviceTrusted(userId) {
-  return localStorage.getItem(DEVICE_TRUST_PREFIX + userId) === 'true'
-}
-
 function trustDevice(userId) {
   localStorage.setItem(DEVICE_TRUST_PREFIX + userId, 'true')
 }
@@ -23,6 +19,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState('')
+  // Device verification is disabled: always true
   const [deviceVerified, setDeviceVerified] = useState(true)
   const [verifyingEmail, setVerifyingEmail] = useState('')
   const otpSentForRef = useRef(null)
@@ -36,9 +33,7 @@ export function AuthProvider({ children }) {
     if (!error) setProfile(data)
   }
 
-  // Rejects any session whose email isn't on the allowed school domain —
-  // used both on initial load and whenever auth state changes (including
-  // right after a Google OAuth redirect).
+  // Rejects any session whose email isn't on the allowed school domain.
   async function rejectIfNotSchoolEmail(nextSession) {
     if (!nextSession?.user) return false
     if (isAllowedEmail(nextSession.user.email)) return false
@@ -50,55 +45,6 @@ export function AuthProvider({ children }) {
     return true
   }
 
-  // If this browser hasn't been marked trusted for this user before, sends
-  // a one-time email code and flips deviceVerified to false so
-  // ProtectedRoute can redirect to /verify-device until it's confirmed.
-function checkDeviceTrust(nextSession) {
-    if (!nextSession?.user) {
-      setDeviceVerified(true)
-      return
-    }
-
-    // Kung galing tayo sa pag-click ng magic link (na-flag natin sa
-    // supabaseClient.js), ang pag-click mismo ang siyang "verification" —
-    // i-trust na natin agad ang device na ito, walang extra step.
-    if (sessionStorage.getItem('cw_magic_link_pending') === '1') {
-      sessionStorage.removeItem('cw_magic_link_pending')
-      trustDevice(nextSession.user.id)
-      setDeviceVerified(true)
-      return
-    }
-
-    if (isDeviceTrusted(nextSession.user.id)) {
-      setDeviceVerified(true)
-      return
-    }
-
-    setDeviceVerified(false)
-    setVerifyingEmail(nextSession.user.email)
-    if (otpSentForRef.current !== nextSession.user.id) {
-      otpSentForRef.current = nextSession.user.id
-      supabase.auth.signInWithOtp({
-        email: nextSession.user.email,
-        options: {
-          shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/verify-device`,
-        },
-      })
-    }
-  }
-
-  async function resendDeviceCode() {
-    if (!verifyingEmail) return { error: new Error('No email to verify') }
-    return supabase.auth.signInWithOtp({
-      email: verifyingEmail,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: `${window.location.origin}/verify-device`,
-      },
-    })
-  }
-
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       const rejected = await rejectIfNotSchoolEmail(session)
@@ -106,7 +52,6 @@ function checkDeviceTrust(nextSession) {
         setSession(session)
         if (session?.user) {
           await loadProfile(session.user.id)
-          checkDeviceTrust(session)
         }
       }
       setLoading(false)
@@ -119,7 +64,6 @@ function checkDeviceTrust(nextSession) {
       setSession(session)
       if (session?.user) {
         loadProfile(session.user.id)
-        checkDeviceTrust(session)
       } else {
         setProfile(null)
       }
@@ -146,13 +90,6 @@ function checkDeviceTrust(nextSession) {
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
-        // Hints Google to show neu.edu.ph accounts first. This is only
-        // enforced by Google itself for Workspace-managed domains — our own
-        // rejectIfNotSchoolEmail() check above is what actually blocks
-        // non-school emails regardless of that.
-        // select_account forces Google to always show the account picker,
-        // instead of silently reusing whichever Google account is already
-        // signed into the browser.
         queryParams: { hd: 'neu.edu.ph', prompt: 'select_account' },
       },
     })
@@ -168,11 +105,15 @@ function checkDeviceTrust(nextSession) {
     setAuthError('')
   }
 
+  // Kept so VerifyDevice.jsx still works if it's ever opened
   async function resendDeviceCode() {
     if (!verifyingEmail) return { error: new Error('No email to verify') }
     return supabase.auth.signInWithOtp({
       email: verifyingEmail,
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/verify-device`,
+      },
     })
   }
 
@@ -189,8 +130,6 @@ function checkDeviceTrust(nextSession) {
     return { error }
   }
 
-  // Lets other components (e.g. the profile-edit dropdown) tell the context
-  // to re-fetch the profile row after they've updated it directly.
   async function refreshProfile() {
     if (session?.user) await loadProfile(session.user.id)
   }
